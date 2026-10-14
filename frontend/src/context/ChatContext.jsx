@@ -76,9 +76,11 @@ export const ChatProvider = ({ children }) => {
   }, [currentConversation]);
 
   const sendMessage = useCallback(
-    async (text, attachment = null, targetConvId = null) => {
-      const convId = targetConvId || currentConversation?._id;
-      if (!convId) return;
+    async (text, overrideConversationId = null, attachment = null) => {
+      const activeId = overrideConversationId || currentConversation?._id;
+      if (!activeId) {
+        throw new Error("No active conversation");
+      }
       setSending(true);
       setError(null);
 
@@ -94,7 +96,7 @@ export const ChatProvider = ({ children }) => {
 
       try {
         const { data } = await api.post("/chat", {
-          conversationId: convId,
+          conversationId: activeId,
           message: text || "",
           attachment: attachment || null,
         });
@@ -126,13 +128,13 @@ export const ChatProvider = ({ children }) => {
         if (data.title) {
           setConversations((prev) =>
             prev.map((c) =>
-              c._id === convId
+              c._id === activeId
                 ? { ...c, title: data.title, updatedAt: new Date().toISOString() }
                 : c
             )
           );
           setCurrentConversation((prev) =>
-            prev?._id === convId ? { ...prev, title: data.title } : prev
+            prev?._id === activeId ? { ...prev, title: data.title } : prev
           );
         }
       } catch (err) {
@@ -187,6 +189,47 @@ export const ChatProvider = ({ children }) => {
     }
   }, [currentConversation]);
 
+  const updateMessage = useCallback(async (messageId, content) => {
+    const { data } = await api.put(`/messages/${messageId}`, { content });
+    setMessages((prev) =>
+      prev.map((message) =>
+        message._id === messageId ? { ...message, content: data.content } : message
+      )
+    );
+    return data;
+  }, []);
+
+  const editAndResubmitMessage = useCallback(async (messageId, content) => {
+    setSending(true);
+    setError(null);
+    try {
+      const { data } = await api.post(
+        `/chat/messages/${messageId}/resubmit`,
+        { content }
+      );
+      const removedIds = new Set(data.removedMessageIds.map(String));
+      setMessages((prev) => [
+        ...prev
+          .filter((message) => !removedIds.has(String(message._id)))
+          .map((message) =>
+            message._id === messageId
+              ? { ...message, ...data.userMessage }
+              : message
+          ),
+        data.assistantMessage,
+      ]);
+      return data;
+    } catch (err) {
+      setError(
+        err.response?.data?.message ||
+          "Could not update the message and generate a new response."
+      );
+      throw err;
+    } finally {
+      setSending(false);
+    }
+  }, []);
+
   return (
     <ChatContext.Provider
       value={{
@@ -206,6 +249,8 @@ export const ChatProvider = ({ children }) => {
         renameConversation,
         sendMessage,
         regenerate,
+        updateMessage,
+        editAndResubmitMessage,
         setConversations,
       }}
     >
