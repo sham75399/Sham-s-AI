@@ -12,6 +12,8 @@ const ChatWindow = ({
   sending,
   loadingMessages,
   onSend,
+  onUpdateMessage,
+  onEditAndResubmitMessage,
   onRegenerate,
   onStop,
   onMenuToggle,
@@ -80,6 +82,8 @@ const ChatWindow = ({
                 <ChatMessage
                   key={m._id}
                   message={m}
+                  onUpdateMessage={onUpdateMessage}
+                  onEditAndResubmitMessage={onEditAndResubmitMessage}
                   onRegenerate={onRegenerate}
                   isLastAssistant={m._id === lastAssistantId}
                 />
