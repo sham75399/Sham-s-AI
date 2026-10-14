@@ -24,6 +24,8 @@ const Chat = () => {
     deleteConversation,
     renameConversation,
     sendMessage,
+    updateMessage,
+    editAndResubmitMessage,
     regenerate,
   } = useChat();
 
@@ -70,17 +72,18 @@ const Chat = () => {
   };
 
   const handleSend = async (text, attachment = null) => {
-    if (!currentConversation) {
+    let conversation = currentConversation;
+    if (!conversation) {
       try {
-        const conv = await createConversation();
-        await sendMessage(text, attachment, conv?._id);
+        conversation = await createConversation();
       } catch {
-        setError("Could not send message");
+        setError("Could not start a new conversation");
+        return;
       }
-      return;
     }
+
     try {
-      await sendMessage(text, attachment);
+      await sendMessage(text, conversation._id, attachment);
     } catch {
       /* handled in context */
     }
@@ -150,6 +153,8 @@ const Chat = () => {
         sending={sending}
         loadingMessages={loadingMessages}
         onSend={handleSend}
+        onUpdateMessage={updateMessage}
+        onEditAndResubmitMessage={editAndResubmitMessage}
         onRegenerate={regenerate}
         onStop={() => {}}
         onMenuToggle={() => setSidebarOpen(true)}
