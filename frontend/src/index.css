@@ -787,6 +787,7 @@ a {
 .chat-scroll {
   flex: 1;
   overflow-y: auto;
+  overflow-x: hidden;
   scroll-behavior: smooth;
 }
 
@@ -803,6 +804,7 @@ a {
 .message {
   display: flex;
   gap: 14px;
+  min-width: 0;
   animation: fadeIn 0.2s ease;
 }
 
@@ -850,12 +852,15 @@ a {
 }
 
 .message-content {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   padding: 12px 16px;
   border-radius: 14px;
   font-size: 15px;
   line-height: 1.65;
   word-wrap: break-word;
-  overflow-wrap: break-word;
+  overflow-wrap: anywhere;
 }
 
 .message.user .message-content {
@@ -912,9 +917,13 @@ a {
 }
 
 .message.assistant .message-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
   border-collapse: collapse;
   margin: 12px 0;
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
   font-size: 14px;
 }
 
@@ -930,21 +939,32 @@ a {
   font-weight: 600;
 }
 
-.message.assistant .message-content code:not(pre code) {
+.message.assistant .message-content .inline-code {
   background: var(--bg-tertiary);
   padding: 2px 6px;
   border-radius: 4px;
   font-size: 0.9em;
   font-family: "Consolas", "Monaco", "Courier New", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 /* Code block */
 .code-block {
+  box-sizing: border-box;
+  min-width: 0;
+  max-width: 100%;
   margin: 12px 0;
   border-radius: 10px;
   overflow: hidden;
   background: var(--code-bg);
   border: 1px solid var(--border);
+}
+
+.code-block > div:last-child {
+  max-width: 100%;
+  overflow-x: auto !important;
 }
 
 .code-header {
@@ -989,6 +1009,18 @@ a {
   opacity: 1;
 }
 
+.message.user .user-message-actions {
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.user-message-action-notice {
+  align-self: center;
+  margin-left: 4px;
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
 .action-btn {
   padding: 6px;
   border-radius: 6px;
@@ -1006,6 +1038,132 @@ a {
 
 .action-btn.active {
   color: var(--accent);
+}
+
+@media (hover: none) {
+  .message-actions {
+    opacity: 1;
+  }
+}
+
+/* User-message text-selection actions */
+.selection-toolbar {
+  position: fixed;
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 5px;
+  border: 1px solid #e8e7ef;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: 0 8px 28px rgba(25, 20, 50, 0.16);
+  color: #292638;
+}
+
+.selection-menu-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 6px 9px;
+  border-radius: 7px;
+  color: #514c62;
+  font-size: 13px;
+  white-space: nowrap;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.selection-menu-button:hover:not(:disabled) {
+  color: #5b45d6;
+  background: #f2efff;
+}
+
+.selection-menu-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.selection-menu-primary {
+  color: #5b45d6;
+  background: #f2efff;
+  font-weight: 600;
+}
+
+.selection-toolbar-error {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  padding: 5px 8px;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 4px 16px rgba(25, 20, 50, 0.12);
+  color: #b42318;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.selection-edit {
+  min-width: min(560px, 100%);
+}
+
+.selection-edit > label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.selection-edit > textarea {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  max-height: 320px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.selection-edit > textarea:focus {
+  border-color: var(--accent);
+  outline: 2px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.selection-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.selection-error {
+  margin-top: 8px;
+  color: #b42318;
+  font-size: 13px;
+}
+
+@media (max-width: 480px) {
+  .selection-toolbar {
+    gap: 0;
+    padding: 4px;
+  }
+
+  .selection-menu-button {
+    gap: 4px;
+    padding: 6px 7px;
+    font-size: 12px;
+  }
+
+  .selection-edit {
+    min-width: 0;
+  }
 }
 
 /* Typing indicator */
