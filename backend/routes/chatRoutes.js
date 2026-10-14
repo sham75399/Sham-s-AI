@@ -7,6 +7,7 @@ import {
   deleteConversation,
   sendMessage,
   regenerateResponse,
+  editAndResubmitMessage,
 } from "../controllers/chatController.js";
 import { getMessages } from "../controllers/messageController.js";
 import { protect } from "../middleware/authMiddleware.js";
@@ -35,6 +36,10 @@ export const aiRouter = express.Router();
 aiRouter.use(protect);
 aiRouter.post("/", sendMessage);
 aiRouter.post("/regenerate", regenerateResponse);
+aiRouter.post(
+  "/messages/:messageId/resubmit",
+  editAndResubmitMessage
+);
 aiRouter.post("/transcribe", protect, uploadAudio.single("audio"), transcribeAudio);
 aiRouter.post("/speak", protect, synthesizeSpeech);
 aiRouter.post("/realtime/session", protect, createRealtimeSession);
