@@ -76,48 +76,10 @@ export const deleteConversation = async (req, res, next) => {
   }
 };
 
-// POST /api/chat  (main AI endpoint)
-export const sendMessage = async (req, res, next) => {
-  try {
-    const { conversationId, message, attachment } = req.body;
-
-    if (!conversationId || (!message?.trim() && !attachment)) {
-      return res
-        .status(400)
-        .json({ message: "A message or attachment is required" });
-    }
-
-    const chat = await Conversation.findOne({
-      _id: conversationId,
-      userId: req.user._id,
-    });
-    if (!chat) return res.status(404).json({ message: "Conversation not found" });
-
-    // Save user message
-    const userMessageDoc = await Message.create({
-      conversationId: chat._id,
-      role: "user",
-      content: message?.trim() || "",
-      ...(attachment ? { attachment } : {}),
-    });
-
-    // Auto-generate title if first message
-    const messageCount = await Message.countDocuments({
-      conversationId: chat._id,
-    });
-    if (messageCount <= 1) {
-      chat.title = generateTitle(message?.trim() || attachment?.originalName || "New Chat");
-      await chat.save();
-    } else {
-      chat.updatedAt = new Date();
-      await chat.save();
-    }
-
 // Helper to build context from message history with multimodal image support
 const buildConversationContext = (history) => {
   const uploadDir = path.join(process.cwd(), "uploads");
 
-  // Find the last user message with an image attachment
   let lastImageMsgId = null;
   for (let i = history.length - 1; i >= 0; i--) {
     if (
@@ -146,10 +108,9 @@ const buildConversationContext = (history) => {
           const base64 = fileBuffer.toString("base64");
           const mime = m.attachment.mimetype || "image/jpeg";
           const dataUri = `data:${mime};base64,${base64}`;
-
           const promptText =
             m.content?.trim() ||
-            "Please analyze this image carefully and tell me what image this is, identifying all objects, scenes, people, text, and details present.";
+            "Please analyze this image carefully and tell the user what image this is, identifying all objects, scenes, people, text, and details present.";
 
           return {
             role: m.role,
@@ -194,6 +155,43 @@ const buildConversationContext = (history) => {
     };
   });
 };
+
+// POST /api/chat  (main AI endpoint)
+export const sendMessage = async (req, res, next) => {
+  try {
+    const { conversationId, message, attachment } = req.body;
+
+    if (!conversationId || (!message?.trim() && !attachment)) {
+      return res
+        .status(400)
+        .json({ message: "A message or attachment is required" });
+    }
+
+    const chat = await Conversation.findOne({
+      _id: conversationId,
+      userId: req.user._id,
+    });
+    if (!chat) return res.status(404).json({ message: "Conversation not found" });
+
+    // Save user message
+    const userMessageDoc = await Message.create({
+      conversationId: chat._id,
+      role: "user",
+      content: message?.trim() || "",
+      ...(attachment ? { attachment } : {}),
+    });
+
+    // Auto-generate title if first message
+    const messageCount = await Message.countDocuments({
+      conversationId: chat._id,
+    });
+    if (messageCount <= 1) {
+      chat.title = generateTitle(message?.trim() || attachment?.originalName || "New Chat");
+      await chat.save();
+    } else {
+      chat.updatedAt = new Date();
+      await chat.save();
+    }
 
     // Build context from all previous messages
     const history = await Message.find({ conversationId: chat._id })
@@ -267,6 +265,74 @@ export const regenerateResponse = async (req, res, next) => {
         content: aiText,
         createdAt: assistantMessage.createdAt,
       },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// POST /api/chat/messages/:messageId/resubmit
+export const editAndResubmitMessage = async (req, res, next) => {
+  try {
+    const { content } = req.body;
+    if (typeof content !== "string" || !content.trim()) {
+      return res.status(400).json({ message: "Message content is required" });
+    }
+    if (content.length > 20000) {
+      return res.status(400).json({
+        message: "Message content must be 20000 characters or fewer.",
+      });
+    }
+
+    const userMessage = await Message.findById(req.params.messageId);
+    if (!userMessage || userMessage.role !== "user") {
+      return res.status(404).json({ message: "User message not found" });
+    }
+
+    const chat = await Conversation.findOne({
+      _id: userMessage.conversationId,
+      userId: req.user._id,
+    });
+    if (!chat) return res.status(404).json({ message: "Conversation not found" });
+
+    const history = await Message.find({ conversationId: chat._id })
+      .sort({ createdAt: 1, _id: 1 })
+      .select("role content attachment");
+    const messageIndex = history.findIndex(
+      (item) => item._id.toString() === userMessage._id.toString()
+    );
+    if (messageIndex < 0) {
+      return res.status(404).json({ message: "User message not found" });
+    }
+
+    const updatedHistory = history.slice(0, messageIndex + 1);
+    updatedHistory[updatedHistory.length - 1].content = content;
+    const aiText = await generateAIResponse(
+      buildConversationContext(updatedHistory)
+    );
+
+    const removedMessageIds = history
+      .slice(messageIndex + 1)
+      .map((item) => item._id);
+
+    userMessage.content = content;
+    await userMessage.save();
+    if (removedMessageIds.length > 0) {
+      await Message.deleteMany({ _id: { $in: removedMessageIds } });
+    }
+
+    const assistantMessage = await Message.create({
+      conversationId: chat._id,
+      role: "assistant",
+      content: aiText,
+    });
+    chat.updatedAt = new Date();
+    await chat.save();
+
+    return res.json({
+      userMessage,
+      assistantMessage,
+      removedMessageIds,
     });
   } catch (error) {
     next(error);
