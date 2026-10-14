@@ -15,7 +15,13 @@ const ALLOWED_TYPES = [
   "image/gif",
 ];
 
-const ChatInput = ({ onSend, onStop, sending, disabled, onOpenVoiceMode }) => {
+const ChatInput = ({
+  onSend,
+  onStop,
+  sending,
+  disabled,
+  onOpenVoiceMode,
+}) => {
   const [text, setText] = useState("");
   const [attachment, setAttachment] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -116,7 +122,7 @@ const ChatInput = ({ onSend, onStop, sending, disabled, onOpenVoiceMode }) => {
     }
   };
 
-  const canSend = (text.trim() || attachment) && !sending && !uploading && !disabled;
+  const canSend = (text.trim() || attachment) && !sending && !uploading;
 
   const submit = async () => {
     if (!canSend) return;
@@ -321,7 +327,6 @@ const ChatInput = ({ onSend, onStop, sending, disabled, onOpenVoiceMode }) => {
           onChange={(e) => setText(e.target.value)}
           onKeyDown={onKeyDown}
           onPaste={onPaste}
-          disabled={disabled || uploading}
           aria-label="Message input"
         />
 
